@@ -63,12 +63,14 @@ const navLinks = document.getElementById('nav-links');
 
 hamburger.addEventListener('click', () => {
   const open = navLinks.classList.toggle('open');
+  hamburger.setAttribute('aria-pressed', open ? 'true' : 'false');
   document.body.style.overflow = open ? 'hidden' : '';
 });
 
 document.querySelectorAll('.nav-link').forEach(l => {
   l.addEventListener('click', () => {
     navLinks.classList.remove('open');
+    hamburger.setAttribute('aria-pressed', 'false');
     document.body.style.overflow = '';
   });
 });
@@ -79,12 +81,18 @@ const navItems = document.querySelectorAll('.nav-link');
 
 window.addEventListener('scroll', () => {
   let current = '';
+  const scrollPos = window.scrollY + 150;
 
   sections.forEach(s => {
-    if (window.scrollY >= s.offsetTop - 120) {
+    if (scrollPos >= s.offsetTop) {
       current = s.id;
     }
   });
+
+  // near the bottom of the page -> force the last section active
+  if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) {
+    current = sections[sections.length - 1].id;
+  }
 
   navItems.forEach(l => {
     l.classList.toggle('active', l.getAttribute('href') === `#${current}`);
@@ -188,3 +196,71 @@ window.addEventListener('load', () => {
 // ===== FOOTER YEAR =====
 const yearEl = document.getElementById('year');
 if (yearEl) yearEl.textContent = new Date().getFullYear();
+// ===== ABOUT — scramble-reveal text (pure JS, no library) =====
+(function () {
+  const el = document.querySelector('#about .statement-sub');
+  if (!el) return;
+
+  const finalText = el.textContent;
+  const glyphs = '!<>-_\\/[]{}—=+*^?#________';
+  let started = false;
+
+  function run() {
+    const totalFrames = 45;
+    let frame = 0;
+    (function step() {
+      frame++;
+      const revealed = Math.floor((frame / totalFrames) * finalText.length);
+      let out = '';
+      for (let i = 0; i < finalText.length; i++) {
+        if (i < revealed || finalText[i] === ' ') {
+          out += finalText[i];
+        } else {
+          out += glyphs[Math.floor(Math.random() * glyphs.length)];
+        }
+      }
+      el.textContent = out;
+      if (revealed < finalText.length) {
+        requestAnimationFrame(step);
+      } else {
+        el.textContent = finalText;
+      }
+    })();
+  }
+
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting && !started) {
+        started = true;
+        run();
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.4 });
+  io.observe(el);
+})();
+
+// ===== FLOATING SHAPES PARALLAX (safe scroll transform) =====
+(function () {
+  const floaties = document.querySelectorAll('.floaty');
+  if (!floaties.length) return;
+
+  // respect reduced-motion
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  let ticking = false;
+  function update() {
+    const y = window.scrollY;
+    floaties.forEach((el) => {
+      const speed = parseFloat(el.dataset.speed) || 0.2;
+      el.style.transform = `translateY(${(y * speed).toFixed(1)}px)`;
+    });
+    ticking = false;
+  }
+  window.addEventListener('scroll', () => {
+    if (!ticking) {
+      window.requestAnimationFrame(update);
+      ticking = true;
+    }
+  }, { passive: true });
+})();
